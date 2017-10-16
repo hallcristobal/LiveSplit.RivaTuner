@@ -81,6 +81,8 @@
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RivaTuner.cs" />
+    <Compile Include="TimeFormatters\DeltaSplitTimeFormatter.cs" />
+    <Compile Include="TimeFormatters\RegularSplitTimeFormatter.cs" />
     <Compile Include="UI\Components\RivaTunerComponent.cs" />
     <Compile Include="UI\Components\RivaTunerFactory.cs" />
     <Compile Include="UI\Components\RivaTunerSettings.cs">
@@ -104,6 +106,11 @@
     <Content Include="rivatuner.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="UI\Components\RivaTunerSettings.resx">
+      <DependentUpon>RivaTunerSettings.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
