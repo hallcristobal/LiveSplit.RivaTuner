@@ -1,0 +1,3 @@
+[submodule "livesplit-rivatuner"]
+	path = livesplit-rivatuner
+	url = https://github.com/hallcristobal/livesplit-rivatuner
