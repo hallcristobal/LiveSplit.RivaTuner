@@ -8,14 +8,35 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml;
 using LiveSplit.UI;
+using LiveSplit.TimeFormatters;
 
 namespace LiveSplit.RivaTuner.UI.Components
 {
     public partial class RivaTunerSettings : UserControl
     {
+        private int _VisualSplitCount { get; set; } = 8;
+        public int VisualSplitCount
+        {
+            get { return _VisualSplitCount; }
+            set
+            {
+                _VisualSplitCount = value;
+                var max = Math.Max(0, _VisualSplitCount - (AlwaysShowLastSplit ? 2 : 1));
+                if (nudUpcomingSegments.Value > max)
+                    nudUpcomingSegments.Value = max;
+                nudUpcomingSegments.Maximum = max;
+            }
+        }
+        public int SplitPreviewCount { get; set; } = 1;
+        public bool AlwaysShowLastSplit { get; set; } = true;
+        public bool DropDecimals { get; set; } = true;
+        public TimeAccuracy DeltasAccuracy { get; set; } = TimeAccuracy.Tenths;
+        public TimeAccuracy SplitAccuracy { get; set; } = TimeAccuracy.Seconds;
+        public int FontSize { get; protected set; } = 70;
+
+
         private List<string> availableComponents;
         public BindingList<string> addedComponents;
-        public int FontSize { get; protected set; } = 70;
 
         public RivaTunerSettings()
         {
@@ -35,6 +56,11 @@ namespace LiveSplit.RivaTuner.UI.Components
             lbComponents.DataSource = availableComponents;
             lbAddedComponents.DataSource = addedComponents;
             nudFontSize.Value = FontSize;
+
+            nudTotalSegments.DataBindings.Add("Value", this, "VisualSplitCount", false, DataSourceUpdateMode.OnPropertyChanged);
+            nudUpcomingSegments.DataBindings.Add("Value", this, "SplitPreviewCount", false, DataSourceUpdateMode.OnPropertyChanged);
+            chkLockLastSplit.DataBindings.Add("Checked", this, "AlwaysShowLastSplit", false, DataSourceUpdateMode.OnPropertyChanged);
+            chkDeltaDropDecimals.DataBindings.Add("Checked", this, "DropDecimals", false, DataSourceUpdateMode.OnPropertyChanged);
         }
 
         public void SetSettings(XmlNode settings)
@@ -161,6 +187,45 @@ namespace LiveSplit.RivaTuner.UI.Components
             {
                 FontSize = (int)value;
             }
+        }
+
+        private void SplitAccuracy_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdateSplitAccuracy();
+        }
+        
+        private void DeltaAccuracy_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdateDeltaAccuracy();
+        }
+
+        void UpdateDeltaAccuracy()
+        {
+            if (rbDeltaAccuracySeconds.Checked)
+                DeltasAccuracy = TimeAccuracy.Seconds;
+            else if (rbDeltaAccuracyTenths.Checked)
+                DeltasAccuracy = TimeAccuracy.Tenths;
+            else
+                DeltasAccuracy = TimeAccuracy.Hundredths;
+        }
+        void UpdateSplitAccuracy()
+        {
+            if (rbSplitAccuracySeconds.Checked)
+                SplitAccuracy = TimeAccuracy.Seconds;
+            else if (rbSplitAccuracyTenths.Checked)
+                SplitAccuracy = TimeAccuracy.Tenths;
+            else
+                SplitAccuracy = TimeAccuracy.Hundredths;
+        }
+
+        private void RivaTunerSettings_Load(object sender, EventArgs e)
+        {
+            rbSplitAccuracySeconds.Checked = SplitAccuracy == TimeAccuracy.Seconds;
+            rbSplitAccuracyTenths.Checked = SplitAccuracy == TimeAccuracy.Tenths;
+            rbSplitAccuracyHundreths.Checked = SplitAccuracy == TimeAccuracy.Hundredths;
+            rbDeltaAccuracySeconds.Checked = DeltasAccuracy == TimeAccuracy.Seconds;
+            rbDeltaAccuracyTenths.Checked = DeltasAccuracy == TimeAccuracy.Tenths;
+            rbDeltaAccuracyHundreths.Checked = DeltasAccuracy == TimeAccuracy.Hundredths;
         }
     }
 }

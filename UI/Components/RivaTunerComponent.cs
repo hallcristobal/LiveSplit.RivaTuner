@@ -9,6 +9,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Drawing;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
+using LiveSplit.Options;
 
 namespace LiveSplit.RivaTuner.UI.Components
 {
@@ -37,9 +39,13 @@ namespace LiveSplit.RivaTuner.UI.Components
             {
                 RivaTuner.print(text);
             }
+            catch (SEHException e)
+            {
+                Log.Error(e);
+            }
             catch (Exception e)
             {
-
+                Log.Error(e);
             }
         }
         public override void Update(IInvalidator invalidator, LiveSplitState state, float width, float height, LayoutMode mode)
@@ -93,7 +99,7 @@ namespace LiveSplit.RivaTuner.UI.Components
                 return char.IsWhiteSpace(a) ? c : a;
             }));
 
-            return String.Format($"{game.Substring(0, 35)}\n{combined}\n");
+            return $"{game.Substring(0, 35)}\n{combined}\n";
         }
 
         private string splitsComponent()
@@ -101,39 +107,64 @@ namespace LiveSplit.RivaTuner.UI.Components
             var text = "";
             var comparison = State.CurrentComparison;
             var method = State.CurrentTimingMethod;
-
-            for (int i = 0; i < State.Run.Count; i++)
+            var skipCount = Math.Min(
+                Math.Max(
+                    0,
+                    State.CurrentSplitIndex - (Settings.VisualSplitCount - 2 - Settings.SplitPreviewCount + (Settings.AlwaysShowLastSplit ? 0 : 1))
+                    ),
+                State.Run.Count - Settings.VisualSplitCount);
+            
+            foreach (var split in State.Run.Skip(skipCount).Take(Settings.VisualSplitCount - 1 + (Settings.AlwaysShowLastSplit ? 0 : 1)))
             {
-                ISegment segment = State.Run[i];
-                TimeSpan? deltaTime = null;
-                Color? color = null;
-                var segName = (segment.Name.Length > 15) ? segment.Name.Substring(0, 15) : segment.Name;
-
-                if(i < State.CurrentSplitIndex)
-                {
-                    deltaTime = segment.SplitTime[method] - segment.Comparisons[comparison][method];
-                    color = LiveSplitStateHelper.GetSplitColor(State, deltaTime, i, true, true, comparison, method);
-                }
-                else
-                {
-                    //Live Delta
-                    var bestDelta = LiveSplitStateHelper.CheckLiveDelta(State, true, comparison, method);
-                    if (bestDelta != null && segment == State.CurrentSplit)
-                    {
-                        deltaTime = bestDelta;
-                        color = State.LayoutSettings.TextColor;
-                    }
-                }
-
-                text += String.Format("{0}{1, -15}<C> {2}{3, 9}<C> {4, 9}\n",
-                    (State.CurrentSplit == segment) ? "<C8>" : "",
-                    segName,
-                    getColor(color),
-                    DeltaFormatter.Format(deltaTime),
-                    SplitTimeFormatter.Format(segment.Comparisons[comparison][method])
-                    );
+                text += splitComponent(split, comparison, method);
             }
+            if (Settings.AlwaysShowLastSplit && State.Run.Count >= Settings.VisualSplitCount)
+                text += splitComponent(State.Run.Last(), comparison, method);
+
             return text;
+        }
+
+        private string splitComponent(ISegment segment, string comparison, TimingMethod method)
+        {
+            TimeSpan? deltaTime = null;
+            Color? color = null;
+            var i = State.Run.IndexOf(segment);
+            var segName = (segment.Name.Length > 15) ? segment.Name.Substring(0, 15) : segment.Name;
+
+            if (i < State.CurrentSplitIndex)
+            {
+                deltaTime = segment.SplitTime[method] - segment.Comparisons[comparison][method];
+                color = LiveSplitStateHelper.GetSplitColor(State, deltaTime, i, true, true, comparison, method);
+            }
+            else
+            {
+                //Live Delta
+                var bestDelta = LiveSplitStateHelper.CheckLiveDelta(State, true, comparison, method);
+                if (bestDelta != null && segment == State.CurrentSplit)
+                {
+                    deltaTime = bestDelta;
+                    color = State.LayoutSettings.TextColor;
+                }
+            }
+
+            DeltaFormatter.DropDecimals = Settings.DropDecimals;
+            DeltaFormatter.Accuracy = Settings.DeltasAccuracy;
+            SplitTimeFormatter.Accuracy = Settings.SplitAccuracy;
+
+            var splitTime = segment.SplitTime[method];
+            if(splitTime == null && State.CurrentSplitIndex <= i)
+            {
+                splitTime = segment.Comparisons[comparison][method];
+            }
+
+
+            return String.Format("{0}{1, -15}<C> {2}{3, 9}<C> {4, 9}\n",
+                (State.CurrentSplit == segment) ? "<C8>" : "",
+                segName,
+                getColor(color),
+                DeltaFormatter.Format(deltaTime),
+                SplitTimeFormatter.Format(splitTime)
+                );
         }
 
         private string timerComponent()
@@ -343,14 +374,7 @@ namespace LiveSplit.RivaTuner.UI.Components
         public override string ComponentName => "RivaTuner";
         public override void Dispose()
         {
-            try
-            {
-                RivaTuner.print("");
-            }
-            catch (Exception e)
-            {
-
-            }
+            updateRiva("");
         }
         public override XmlNode GetSettings(XmlDocument document) => Settings.GetSettings(document);
         public override Control GetSettingsControl(LayoutMode mode) => Settings;
