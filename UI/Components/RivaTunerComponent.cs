@@ -18,10 +18,17 @@ namespace LiveSplit.RivaTuner.UI.Components
     {
         LiveSplitState State { get; set; }
         RivaTunerSettings Settings { get; set; }
+
         RegularTimeFormatter TimeFormatter { get; set; }
         RegularSplitTimeFormatter SplitTimeFormatter { get; set; }
         DeltaSplitTimeFormatter DeltaFormatter { get; set; }
+        ShortTimeFormatter ShortFormatter { get; set; }
         PossibleTimeSaveFormatter PossibleTimeSaveFormatter { get; set; }
+
+        TimeFormat CurrentTimeFormat { get; set; }
+        TimeAccuracy CurrentAccuracy { get; set; }
+        TimeFormat AlternateTimeFormat { get; set; }
+        TimeAccuracy AlternateAccuracy { get; set; }
 
         public RivaTunerComponent(LiveSplitState state)
         {
@@ -30,6 +37,7 @@ namespace LiveSplit.RivaTuner.UI.Components
             TimeFormatter = new RegularTimeFormatter(TimeAccuracy.Hundredths);
             SplitTimeFormatter = new RegularSplitTimeFormatter(TimeAccuracy.Seconds);
             DeltaFormatter = new DeltaSplitTimeFormatter(TimeAccuracy.Tenths, true);
+            ShortFormatter = new ShortTimeFormatter();
             PossibleTimeSaveFormatter = new PossibleTimeSaveFormatter();
         }
 
@@ -77,29 +85,65 @@ namespace LiveSplit.RivaTuner.UI.Components
                     case "Space":
                         text += "\n";
                         break;
+                    case "Alternate Timing Method":
+                        text += alternateTiming();
+                        break;
                     default:
                         break;
                 }
             }
 
             text += "<S>";
-            Task.Run(async () => updateRiva(text));
+            updateRiva(text);
         }
 
         private string titleComponent()
         {
-            var comparison = State.CurrentComparison;
-            var method = State.CurrentTimingMethod;
+            string line1 = String.Format("{0," + Settings.CharacterWidth + "}", " ");
+            string line2 = String.Format("{0," + Settings.CharacterWidth + "}", " ");
 
-            var game = centerString(State.Run.GameName, 35);
-            var category = centerString(State.Run.CategoryName, 35);
-            var attempts = String.Format("{0, 35}", State.Run.AttemptCount);
-            var combined = String.Join("", category.ToCharArray().Zip(attempts.ToCharArray(), (c, a) =>
+            if (Settings.ShowFinishedCount && Settings.ShowAttemptCount)
             {
-                return char.IsWhiteSpace(a) ? c : a;
-            }));
-
-            return $"{game.Substring(0, 35)}\n{combined}\n";
+                var temp = String.Format("{0}/{1}", State.Run.AttemptHistory.Where(x => x.Time.RealTime != null).Count(), State.Run.AttemptCount);
+                line2 = String.Format("{0, " + Settings.CharacterWidth + "}", temp);
+            }
+            else if (Settings.ShowFinishedCount)
+                line2 = String.Format("{0, " + Settings.CharacterWidth + "}", State.Run.AttemptHistory.Where(x => x.Time.RealTime != null).Count());
+            else if (Settings.ShowAttemptCount)
+                line2 = String.Format("{0, " + Settings.CharacterWidth + "}", State.Run.AttemptCount);
+            
+            if (Settings.ShowOneLine && Settings.ShowGameName && Settings.ShowCategoryName)
+            {
+                var text = string.Format("{0} - {1}", State.Run.GameName, State.Run.CategoryName);
+                var gameAbbreviations = State.Run.GameName.GetAbbreviations();
+                var shortestGameName = gameAbbreviations.Last();
+                var abbreviations = gameAbbreviations.Select(x => string.Format("{0} - {1}", x, State.Run.CategoryName));
+                line1 = centerString(abbreviations.Where(x => x.Length <= Settings.CharacterWidth).First(), Settings.CharacterWidth) + "\n";
+            }
+            else
+            {
+                if(Settings.ShowGameName)
+                {
+                    if(State.Run.GameName.Length > Settings.CharacterWidth)
+                    {
+                        line1 = centerString(State.Run.GameName.GetAbbreviations().Where(x => x.Length <= Settings.CharacterWidth).First(), Settings.CharacterWidth);
+                    }
+                    else
+                    {
+                        line1 = centerString(State.Run.GameName, Settings.CharacterWidth);
+                    }
+                }
+                line1 += '\n';
+                if (Settings.ShowCategoryName)
+                {
+                    line2 = String.Join("", centerString(State.Run.CategoryName, Settings.CharacterWidth).ToCharArray().Zip(line2.ToCharArray(), (c, a) =>
+                    {
+                        return char.IsWhiteSpace(a) ? c : a;
+                    }));
+                }
+            }
+            
+            return $"{line1}{line2}\n";
         }
 
         private string splitsComponent()
@@ -129,7 +173,10 @@ namespace LiveSplit.RivaTuner.UI.Components
             TimeSpan? deltaTime = null;
             Color? color = null;
             var i = State.Run.IndexOf(segment);
-            var segName = (segment.Name.Length > 15) ? segment.Name.Substring(0, 15) : segment.Name;
+            int delta = 9;
+            int time = 9;
+            int split = Settings.CharacterWidth - delta - time - 2;
+            var segName = (segment.Name.Length > split) ? segment.Name.Substring(0, split) : segment.Name;
 
             if (i < State.CurrentSplitIndex)
             {
@@ -157,8 +204,7 @@ namespace LiveSplit.RivaTuner.UI.Components
                 splitTime = segment.Comparisons[comparison][method];
             }
 
-
-            return String.Format("{0}{1, -15}<C> {2}{3, 9}<C> {4, 9}\n",
+            return String.Format("{0}{1, " + -split + "}<C> {2}{3, " + delta + "}<C> {4, " + time + "}\n",
                 (State.CurrentSplit == segment) ? "<C8>" : "",
                 segName,
                 getColor(color),
@@ -169,6 +215,13 @@ namespace LiveSplit.RivaTuner.UI.Components
 
         private string timerComponent()
         {
+            UpdateTimeFormat();
+            var timingMethod = State.CurrentTimingMethod;
+            if (Settings.TimingMethod == "Real Time")
+                timingMethod = TimingMethod.RealTime;
+            else if (Settings.TimingMethod == "Game Time")
+                timingMethod = TimingMethod.GameTime;
+
             var comparison = State.CurrentComparison;
             var method = State.CurrentTimingMethod;
             var TimerColor = Color.Transparent;
@@ -202,9 +255,80 @@ namespace LiveSplit.RivaTuner.UI.Components
                 else
                     TimerColor = State.LayoutSettings.AheadGainingTimeColor;
             }
-            return String.Format("{0}{1, 35}<C>\n",
+
+            var timeValue = State.CurrentTime[timingMethod];
+            var timeString = ShortFormatter.Format(timeValue, CurrentTimeFormat);
+            int dotIndex = timeString.IndexOf(".");
+            var time = timeString.Substring(0, dotIndex);
+            var fraction = String.Empty;
+            if (CurrentAccuracy == TimeAccuracy.Hundredths)
+                fraction = timeString.Substring(dotIndex);
+            else if (CurrentAccuracy == TimeAccuracy.Tenths)
+                fraction = timeString.Substring(dotIndex, 2);
+
+            return String.Format("{0}{1, " + Settings.CharacterWidth + "}<C>\n",
                 getColor(TimerColor),
-                TimeFormatter.Format(State.CurrentTime[method]));
+                String.Join("", time, fraction));
+        }
+
+        private string alternateTiming()
+        {
+            UpdateTimeFormat();
+            var timingMethod = State.CurrentTimingMethod;
+            if (timingMethod == TimingMethod.GameTime)
+                timingMethod = TimingMethod.RealTime;
+            else if (timingMethod == TimingMethod.RealTime)
+                timingMethod = TimingMethod.GameTime;
+
+            var methodString = timingMethod == TimingMethod.GameTime ? "Game Time" : "Real Time";
+
+            var timeValue = State.CurrentTime[timingMethod];
+            var timeString = ShortFormatter.Format(timeValue, AlternateTimeFormat);
+            int dotIndex = timeString.IndexOf(".");
+            var time = timeString.Substring(0, dotIndex);
+            var fraction = String.Empty;
+            if (AlternateAccuracy == TimeAccuracy.Hundredths)
+                fraction = timeString.Substring(dotIndex);
+            else if (AlternateAccuracy == TimeAccuracy.Tenths)
+                fraction = timeString.Substring(dotIndex, 2);
+
+            return formatInfoText(methodString, String.Join("", time, fraction)) + "\n";
+        }
+
+        protected void UpdateTimeFormat()
+        {
+            if (Settings.DigitsFormat == "1")
+                CurrentTimeFormat = TimeFormat.Seconds;
+            else if (Settings.DigitsFormat == "00:01")
+                CurrentTimeFormat = TimeFormat.Minutes;
+            else if (Settings.DigitsFormat == "0:00:01")
+                CurrentTimeFormat = TimeFormat.Hours;
+            else
+                CurrentTimeFormat = TimeFormat.TenHours;
+
+            if (Settings.AlternateTimeFormat == "1")
+                AlternateTimeFormat = TimeFormat.Seconds;
+            else if (Settings.AlternateTimeFormat == "00:01")
+                AlternateTimeFormat = TimeFormat.Minutes;
+            else if (Settings.AlternateTimeFormat == "0:00:01")
+                AlternateTimeFormat = TimeFormat.Hours;
+            else
+                CurrentTimeFormat = TimeFormat.TenHours;
+            
+            if (Settings.Accuracy == ".23")
+                CurrentAccuracy = TimeAccuracy.Hundredths;
+            else if (Settings.Accuracy == ".2")
+                CurrentAccuracy = TimeAccuracy.Tenths;
+            else
+                CurrentAccuracy = TimeAccuracy.Seconds;
+
+            if (Settings.AlternateAccuracy == ".23")
+                AlternateAccuracy = TimeAccuracy.Hundredths;
+            else if (Settings.AlternateAccuracy == ".2")
+                AlternateAccuracy = TimeAccuracy.Tenths;
+            else
+                AlternateAccuracy = TimeAccuracy.Seconds;
+
 
         }
 
@@ -313,13 +437,13 @@ namespace LiveSplit.RivaTuner.UI.Components
 
         private string formatInfoTextWithColor(string text, string time, Color? color)
         {
-            if (text.Length > 35)
-                text = text.Substring(0, 35);
+            if (text.Length > Settings.CharacterWidth)
+                text = text.Substring(0, Settings.CharacterWidth);
 
             var length = text.Length;
             text += getColor(color);
             
-            var add = 35 - length - time.Length;
+            var add = Settings.CharacterWidth - length - time.Length;
             for(int i = 0; i < add; i++)
             {
                 text += " ";
@@ -332,8 +456,8 @@ namespace LiveSplit.RivaTuner.UI.Components
 
         private string formatInfoText(string text, string value)
         {
-            text = String.Format("{0, -35}", text);
-            value = String.Format("{0, 35}", value);
+            text = String.Format("{0, " + -Settings.CharacterWidth + "}", text);
+            value = String.Format("{0, " + Settings.CharacterWidth + "}", value);
             return String.Join("", text.ToCharArray().Zip(value.ToCharArray(), (t, v) =>
             {
                 return char.IsWhiteSpace(v) ? t : v;
