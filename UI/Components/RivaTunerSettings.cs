@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml;
+using LiveSplit.Model;
 using LiveSplit.UI;
 using LiveSplit.TimeFormatters;
 
@@ -66,6 +67,12 @@ namespace LiveSplit.RivaTuner.UI.Components
                 }
             }
         }
+        public string TimerSize { get; set; } = "100%";
+        public string TimerPosition { get; set; } = "100";
+
+        // Split Timer
+        public string SplitTimerSize { get; set; } = "100%";
+        public string SplitTimerPosition { get; set; } = "100";
 
         // Alternate Timing Method
         public string AlternateTimeFormat { get; set; } = "1";
@@ -100,6 +107,9 @@ namespace LiveSplit.RivaTuner.UI.Components
         private List<string> availableComponents;
         public BindingList<string> addedComponents;
 
+        public string Comparison { get; set; }
+        public LiveSplitState CurrentState { get; set; }
+
         public RivaTunerSettings()
         {
             InitializeComponent();
@@ -107,12 +117,16 @@ namespace LiveSplit.RivaTuner.UI.Components
             {
                 "Title",
                 "Splits",
+                "SubSplits",
                 "Timer",
+                "Split Timer",
                 "Previous Segment",
                 "Sum Of Best",
+                "Best Possible Time",
                 "Possible Time Save",
                 "Space",
-                "Alternate Timing Method"
+                "Alternate Timing Method",
+                "Comparison"
             };
             addedComponents = new BindingList<string>();
 
@@ -139,6 +153,12 @@ namespace LiveSplit.RivaTuner.UI.Components
             cbTimingMethod.DataBindings.Add("SelectedItem", this, "TimingMethod", false, DataSourceUpdateMode.OnPropertyChanged);
             cbTimerFormatValue.DataBindings.Add("SelectedItem", this, "DigitsFormat", false, DataSourceUpdateMode.OnPropertyChanged);
             cbTimerFormatFraction.DataBindings.Add("SelectedItem", this, "Accuracy", false, DataSourceUpdateMode.OnPropertyChanged);
+            cbTimerSize.DataBindings.Add("SelectedItem", this, "TimerSize", false, DataSourceUpdateMode.OnPropertyChanged);
+            nudTimerPosition.DataBindings.Add("Value", this, "TimerPosition", false, DataSourceUpdateMode.OnPropertyChanged);
+
+            // Split Timer
+            cbSplitTimerSize.DataBindings.Add("SelectedItem", this, "SplitTimerSize", false, DataSourceUpdateMode.OnPropertyChanged);
+            nudSplitTimerPosition.DataBindings.Add("Value", this, "SplitTimerPosition", false, DataSourceUpdateMode.OnPropertyChanged);
 
             //Alternate
             cbAlternateFormatValue.DataBindings.Add("SelectedItem", this, "AlternateTimeFormat", false, DataSourceUpdateMode.OnPropertyChanged);
@@ -165,6 +185,11 @@ namespace LiveSplit.RivaTuner.UI.Components
             // Timer
             TimingMethod = SettingsHelper.ParseString(element["TimingMethod"], "Current Timing Method");
             timerFormat = SettingsHelper.ParseString(element["TimerFormat"], "1.23");
+            TimerSize = SettingsHelper.ParseString(element["TimerSize"], "100%");
+            TimerPosition = SettingsHelper.ParseString(element["TimerPosition"], "100");
+            // Split Timer
+            SplitTimerSize = SettingsHelper.ParseString(element["SplitTimerSize"], "100%");
+            SplitTimerPosition = SettingsHelper.ParseString(element["SplitTimerPosition"], "100");
             // Alternate Timing Method
             alternateTimerFormat = SettingsHelper.ParseString(element["AlternateTimerFormat"], "1.23");
             // General
@@ -213,6 +238,11 @@ namespace LiveSplit.RivaTuner.UI.Components
             // Timer
             SettingsHelper.CreateSetting(document, parent, "TimingMethod", TimingMethod) ^
             SettingsHelper.CreateSetting(document, parent, "TimerFormat", timerFormat) ^
+            SettingsHelper.CreateSetting(document, parent, "TimerSize", TimerSize) ^
+            SettingsHelper.CreateSetting(document, parent, "TimerPosition", TimerPosition) ^
+            // Split Timer
+            SettingsHelper.CreateSetting(document, parent, "SplitTimerSize", SplitTimerSize) ^
+            SettingsHelper.CreateSetting(document, parent, "SplitTimerPosition", SplitTimerPosition) ^
             // Alternate Timing Method
             SettingsHelper.CreateSetting(document, parent, "AlternateTimerFormat", alternateTimerFormat) ^
             // General
@@ -377,6 +407,64 @@ namespace LiveSplit.RivaTuner.UI.Components
         private void cbAlternateFormatFraction_SelectedIndexChanged(object sender, EventArgs e)
         {
             AlternateAccuracy = cbAlternateFormatFraction.SelectedItem.ToString();
+        }
+
+        private void tableLayoutPanel8_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+
+        private void label10_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void cbTimer_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            TimerSize = cbTimerSize.SelectedItem.ToString();
+        }
+
+        private void cbSplitTimer_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            SplitTimerSize = cbSplitTimerSize.SelectedItem.ToString();
+        }
+
+        private void nudTimerPosition_ValueChanged(object sender, EventArgs e)
+        {
+            var value = nudTimerPosition.Value;
+            if (value > int.MaxValue)
+            {
+                nudTimerPosition.Value = int.MaxValue;
+                TimerPosition = int.MaxValue.ToString();
+            }
+            else if (value < 0)
+            {
+                nudTimerPosition.Value = 0;
+                TimerPosition = "0";
+            }
+            else
+            {
+                TimerPosition = value.ToString();
+            }
+        }
+
+        private void nudSplitTimerPosition_ValueChanged(object sender, EventArgs e)
+        {
+            var value = nudSplitTimerPosition.Value;
+            if (value > int.MaxValue)
+            {
+                nudSplitTimerPosition.Value = int.MaxValue;
+                SplitTimerPosition = int.MaxValue.ToString();
+            }
+            else if (value < 0)
+            {
+                nudSplitTimerPosition.Value = 0;
+                SplitTimerPosition = "0";
+            }
+            else
+            {
+                SplitTimerPosition = value.ToString();
+            }
         }
     }
 }
