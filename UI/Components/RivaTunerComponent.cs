@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using LiveSplit.Options;
 using LiveSplit.Web;
-using LiveSplit.RivaTuner.UI.SubSplits;
 using System.Runtime.CompilerServices;
 
 
@@ -236,7 +235,6 @@ namespace LiveSplit.RivaTuner.UI.Components
             var text = "";
             var comparison = State.CurrentComparison;
             var method = State.CurrentTimingMethod;
-
             bool isSubSplit = false;
             Int16 isSubSplitIterator = 0;
             Int16 Iterator = 0;
@@ -264,39 +262,48 @@ namespace LiveSplit.RivaTuner.UI.Components
                     splitText = splitText.Insert(0, "   ");
                     isSubSplitIterator++;
                     textArray[Iterator] = splitText;
-                } else if (splitText.StartsWith("<C8>-"))
+                } 
+                else if (splitText.StartsWith("<C8>-"))
                 {
                     isSubSplit = true;
                     splitText = splitText.Remove(4, 1);
                     splitText = splitText.Insert(4, "   ");
                     isSubSplitIterator++;
                     textArray[Iterator] = splitText;
-                } else if (splitText.StartsWith("{") && isSubSplit == true)
+                } 
+                else if (splitText.StartsWith("{") && isSubSplit == true)
                 {
                     string name = "";
-                    bool isFinished = false;
-                    Int16 nameIterator = 1;
-                    while (!isFinished)
+                    string splitName = "";
+                    isSubSplit = false;
+                    for(int i = 0; i < splitText.Length; i++)
                     {
-                        if (splitText[nameIterator] == '{')
+                        if (splitText[i] == '{')
                         {
-                            nameIterator++;
                             continue;
                         }
-                        else if (splitText[nameIterator] == '}')
+                        else if (splitText[i] == '}')
                         {
-                            isFinished = true;
                             break;
                         }
                         else
                         {
-                            name += splitText[nameIterator];
+                            name += splitText[i];
                         }
                     }
+                    for(int i = name.Length + 2; i < splitText.Length; i++)
+                    {
+                        splitName += splitText[i];
+                    }
+                    textArray[Iterator] = splitName;
                     if (Iterator - isSubSplitIterator < 0)
                     {
                         textArray[0] = name + "\n";
                     }
+                    else if (Iterator - isSubSplitIterator == 1)
+                    {
+                        textArray[0] = name + "\n";
+                    } 
                     else
                     {
                         textArray[Iterator - isSubSplitIterator] = name + "\n";
@@ -306,34 +313,29 @@ namespace LiveSplit.RivaTuner.UI.Components
                 else if (splitText.StartsWith("<C8>{") && isSubSplit == true)
                 {
                     string name = "";
-                    bool isFinished = false;
-                    Int16 nameIterator = 1;
-                    while (!isFinished)
+                    string splitName = "";
+                    isSubSplit = false;
+                    for (int i = 0;i < splitText.Length; i++)
                     {
-                        if (splitText[nameIterator] == '{')
+                        if (splitText[i] == '{')
                         {
-                            nameIterator++;
                             continue;
                         }
-                        else if (splitText[nameIterator] == '}')
+                        else if (splitText[i] == '}')
                         {
-                            isFinished = true;
                             break;
                         }
                         else
                         {
-                            name += splitText[nameIterator];
-                            nameIterator++;
+                            name += splitText[i];
                         }
                     }
-                    if (Iterator - isSubSplitIterator < 0)
+                    for (int i = name.Length + 2; i < splitText.Length; i++)
                     {
-                        textArray[0] = name + "\n";
+                        splitName += splitText[i];
                     }
-                    else
-                    {
-                        textArray[Iterator - isSubSplitIterator] = name + "\n";
-                    } 
+                    textArray[Iterator] = splitName;
+                    textArray[Iterator - 1] = name;
                 } else if(isSubSplit == true)
                 {
                     textArray[Iterator - isSubSplitIterator] = splitText;
@@ -343,15 +345,60 @@ namespace LiveSplit.RivaTuner.UI.Components
                 {
                     textArray[Iterator] = splitText;
                 }
-
                 text += splitText;
                 Iterator++;
             }
             if (Settings.AlwaysShowLastSplit && State.Run.Count >= Settings.VisualSplitCount)
                 textArray[numberOfSplits] = splitComponent(State.Run.Last(), comparison, method);
 
-            var testSplits = State.Run.Skip(skipCount).Take(Settings.VisualSplitCount - 1);
+            var testSplits = State.Run.Skip(skipCount + Iterator).Take(20);
+            if(isSubSplit == true)
+            {
+                isSubSplit = false;
+                foreach (var split in testSplits)
+                {
+                    string splitText = subSplitComponent(split, comparison, method);
+                    if (splitText.StartsWith("-"))
+                    {
+                        isSubSplitIterator++;
+                    }
+                    else if (splitText.StartsWith("{"))
+                    {
+                        string name = "";
+                        for (int i = 0; i < splitText.Length; i++)
+                        {
+                            if (splitText[i] == '{')
+                            {
+                                continue;
+                            }
+                            else if (splitText[i] == '}')
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                name += splitText[i];
+                            }
+                        }
+                        for(int i = Settings.VisualSplitCount -1; i> Iterator - isSubSplitIterator - 1; i--)
+                        {
+                            textArray[i] = textArray[i - 1];
+                        }
+                        textArray[Iterator - isSubSplitIterator - 1] = name + "\n";
+                        isSubSplit = false;
+                        break;
+                    } else
+                    {
+                        textArray[Iterator - isSubSplitIterator -1] = splitText;
+                        isSubSplit = false;
+                        break;
+                    }
 
+                    text += splitText;
+                    Iterator++;
+                }
+            }
+            
 
             text = string.Join("", textArray);
 
