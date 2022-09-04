@@ -372,11 +372,18 @@ namespace LiveSplit.RivaTuner.UI.Components
                                 name += splitText[i];
                             }
                         }
-                        for(int i = Settings.VisualSplitCount - 1 ; i > Iterator - isSubSplitIterator; i--)
+                        if(Iterator - isSubSplitIterator == Settings.VisualSplitCount - Settings.SplitPreviewCount + 1 || Iterator - isSubSplitIterator > 1)
                         {
-                            textArray[i] = textArray[i - 1];
+                            for (int i = Settings.VisualSplitCount - 1; i > Iterator - isSubSplitIterator; i--)
+                            {
+                                textArray[i] = textArray[i - 1];
+                            }
+                            textArray[Iterator - isSubSplitIterator] = name + "\n";
+                        } else
+                        {
+                            textArray[0] = name + "\n";
                         }
-                        textArray[Iterator - isSubSplitIterator] = name + "\n";
+
                         isSubSplit = false;
                         break;
                     } else
@@ -568,7 +575,18 @@ namespace LiveSplit.RivaTuner.UI.Components
             TimeSpan? splitTime = null;
             string stringSplitTime = "Gold: 00:00:00.00";
             if (State.CurrentPhase != TimerPhase.NotRunning)
+            {
                 splitTime = State.Run[State.CurrentSplitIndex].BestSegmentTime[State.CurrentTimingMethod];
+            }
+            else if(State.CurrentPhase == TimerPhase.NotRunning)
+            {
+                splitTime = State.Run[0].BestSegmentTime[State.CurrentTimingMethod];
+            }
+            else if (State.CurrentPhase == TimerPhase.Ended)
+            {
+                splitTime = State.Run[State.CurrentSplitIndex - 1].BestSegmentTime[State.CurrentTimingMethod];
+            }
+
             if (splitTime.HasValue)
             {
                 stringSplitTime = "Gold: " + splitTime.ToString();
