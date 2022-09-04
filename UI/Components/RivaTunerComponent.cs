@@ -274,7 +274,7 @@ namespace LiveSplit.RivaTuner.UI.Components
                 else if (splitText.StartsWith("{") && isSubSplit == true)
                 {
                     string name = "";
-                    string splitName = "";
+                    string splitName = "   ";
                     isSubSplit = false;
                     for(int i = 0; i < splitText.Length; i++)
                     {
@@ -295,27 +295,19 @@ namespace LiveSplit.RivaTuner.UI.Components
                     {
                         splitName += splitText[i];
                     }
-                    textArray[Iterator] = splitName;
-                    if (Iterator - isSubSplitIterator < 0)
+                    if(Iterator < Settings.VisualSplitCount)
                     {
-                        textArray[0] = name + "\n";
+                        textArray[Iterator] = splitName;
                     }
-                    else if (Iterator - isSubSplitIterator == 1)
-                    {
-                        textArray[0] = name + "\n";
-                    } 
-                    else
-                    {
-                        textArray[Iterator - isSubSplitIterator] = name + "\n";
-                    }
+                    textArray[0] = name + "\n";
 
                 }
                 else if (splitText.StartsWith("<C8>{") && isSubSplit == true)
                 {
                     string name = "";
-                    string splitName = "";
+                    string splitName = "<C8>   ";
                     isSubSplit = false;
-                    for (int i = 0;i < splitText.Length; i++)
+                    for (int i = 4;i < splitText.Length; i++)
                     {
                         if (splitText[i] == '{')
                         {
@@ -330,12 +322,13 @@ namespace LiveSplit.RivaTuner.UI.Components
                             name += splitText[i];
                         }
                     }
-                    for (int i = name.Length + 2; i < splitText.Length; i++)
+                    for (int i = name.Length + 6; i < splitText.Length; i++)
                     {
                         splitName += splitText[i];
                     }
                     textArray[Iterator] = splitName;
-                    textArray[Iterator - 1] = name;
+                    textArray[0] = name + "\n";
+
                 } else if(isSubSplit == true)
                 {
                     textArray[Iterator - isSubSplitIterator] = splitText;
@@ -348,8 +341,7 @@ namespace LiveSplit.RivaTuner.UI.Components
                 text += splitText;
                 Iterator++;
             }
-            if (Settings.AlwaysShowLastSplit && State.Run.Count >= Settings.VisualSplitCount)
-                textArray[numberOfSplits] = splitComponent(State.Run.Last(), comparison, method);
+            
 
             var testSplits = State.Run.Skip(skipCount + Iterator).Take(20);
             if(isSubSplit == true)
@@ -380,11 +372,11 @@ namespace LiveSplit.RivaTuner.UI.Components
                                 name += splitText[i];
                             }
                         }
-                        for(int i = Settings.VisualSplitCount -1; i> Iterator - isSubSplitIterator - 1; i--)
+                        for(int i = Settings.VisualSplitCount - 1 ; i > Iterator - isSubSplitIterator; i--)
                         {
                             textArray[i] = textArray[i - 1];
                         }
-                        textArray[Iterator - isSubSplitIterator - 1] = name + "\n";
+                        textArray[Iterator - isSubSplitIterator] = name + "\n";
                         isSubSplit = false;
                         break;
                     } else
@@ -398,8 +390,9 @@ namespace LiveSplit.RivaTuner.UI.Components
                     Iterator++;
                 }
             }
-            
 
+            if (Settings.AlwaysShowLastSplit && State.Run.Count >= Settings.VisualSplitCount)
+                textArray[numberOfSplits] = splitComponent(State.Run.Last(), comparison, method);
             text = string.Join("", textArray);
 
             return text;

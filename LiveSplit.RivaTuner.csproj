@@ -88,7 +88,6 @@
     <Compile Include="RivaTuner.cs" />
     <Compile Include="TimeFormatters\DeltaSplitTimeFormatter.cs" />
     <Compile Include="TimeFormatters\RegularSplitTimeFormatter.cs" />
-    <Compile Include="UI\Components\SubSplits.cs" />
     <Compile Include="UI\Components\RivaTunerComponent.cs" />
     <Compile Include="UI\Components\RivaTunerFactory.cs" />
     <Compile Include="UI\Components\RivaTunerSettings.cs">
